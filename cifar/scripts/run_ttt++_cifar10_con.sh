@@ -13,7 +13,7 @@ if [ "$#" -lt 2 ]; then
 
 	# METHOD=ssl
 	# METHOD=align
-	METHOD=both
+	METHOD=ssl
 	NSAMPLE=100000
 else
 	CORRUPT=$1
@@ -54,7 +54,7 @@ printf '\n---------------------\n\n'
 python ttt++.py \
 	--dataroot ${DATADIR} \
 	--resume /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/${DATASET}_joint_resnet50 \
-	--outf /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/final/${DATASET}_CON+TotalAlign_${CORRUPT} \
+	--outf /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/final/Con/${DATASET}_CON_${CORRUPT} \
 	--corruption ${CORRUPT} \
 	--level ${LEVEL} \
 	--workers 36 \

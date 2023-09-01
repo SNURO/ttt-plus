@@ -24,6 +24,7 @@ fi
 
 LR=0.001
 BS_SHOT=256
+DATADIR='/gallery_tate/dongyeon.woo/wonjae/TTTdata/'
 
 echo 'DATASET: '${DATASET}
 echo 'CORRUPT: '${CORRUPT}

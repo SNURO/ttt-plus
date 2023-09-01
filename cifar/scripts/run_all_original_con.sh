@@ -1,0 +1,17 @@
+#bash scripts/run_ttt++_cifar10_con.sh gaussian_noise ssl 100000
+#bash scripts/run_ttt++_cifar10_con.sh shot_noise ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh impulse_noise ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh glass_blur ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh motion_blur ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh zoom_blur ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh snow ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh frost ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh fog ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh elastic_transform ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh pixelate ssl 100000
+bash scripts/run_ttt++_cifar10_con.sh jpeg_compression ssl 100000
+#bash scripts/run_ttt++_cifar10_con.sh brightness ssl 100000
+#bash scripts/run_ttt++_cifar10_con.sh brightness ssl 100000
+#bash scripts/run_ttt++_cifar10_con.sh contrast ssl 100000
+#bash scripts/run_ttt++_cifar10_con.sh defocus_blur ssl 100000
+#bash scripts/run_ttt++_cifar10_con.sh brightness ssl 100000

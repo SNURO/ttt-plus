@@ -1,0 +1,17 @@
+bash scripts/run_ttt++_cifar10.sh gaussian_noise both 100000
+bash scripts/run_ttt++_cifar10.sh shot_noise both 100000
+bash scripts/run_ttt++_cifar10.sh impulse_noise both 100000
+bash scripts/run_ttt++_cifar10.sh glass_blur both 100000
+bash scripts/run_ttt++_cifar10.sh motion_blur both 100000
+bash scripts/run_ttt++_cifar10.sh zoom_blur both 100000
+bash scripts/run_ttt++_cifar10.sh snow both 100000
+bash scripts/run_ttt++_cifar10.sh frost both 100000
+bash scripts/run_ttt++_cifar10.sh fog both 100000
+bash scripts/run_ttt++_cifar10.sh elastic_transform both 100000
+bash scripts/run_ttt++_cifar10.sh pixelate both 100000
+bash scripts/run_ttt++_cifar10.sh jpeg_compression both 100000
+#bash scripts/run_ttt++_cifar10.sh brightness both 100000
+#bash scripts/run_ttt++_cifar10.sh brightness both 100000
+#bash scripts/run_ttt++_cifar10.sh contrast both 100000
+#bash scripts/run_ttt++_cifar10.sh defocus_blur both 100000
+#bash scripts/run_ttt++_cifar10.sh brightness both 100000

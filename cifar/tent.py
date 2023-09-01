@@ -160,5 +160,5 @@ if args.tsne:
 
 # -------------------------------
 
-# df = pd.DataFrame([all_err_cls]).T
-# df.to_csv(prefix, index=False, float_format='%.4f', header=False)
+df = pd.DataFrame([all_err_cls]).T
+df.to_csv(prefix, index=False, float_format='%.4f', header=False)

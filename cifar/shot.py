@@ -10,6 +10,7 @@ from utils.test_helpers import *
 from utils.prepare_dataset import *
 
 # ----------------------------------
+import ipdb
 
 import copy
 import time
@@ -143,6 +144,11 @@ for epoch in range(1, args.nepoch+1):
     ext.eval()
     mem_label = obtain_shot_label(trloader, ext, classifier, args)
     mem_label = torch.from_numpy(mem_label).cuda()
+    ###############################################################################################
+
+    ###### trloader은 shuffle되기 때문에 mem_label과 밑의 input이 match되지않음!!!! ##########
+
+    ################################################################################################
     ext.train()
 
     # optimizer = lr_scheduler(optimizer, epoch, 30)

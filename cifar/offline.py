@@ -31,8 +31,8 @@ def offline(trloader, ext, scale):
                 mmd_stack.append(loss_mmd.item())
                 feat_stack.append(feat)
 
-    print("Source loss_mean: mu = {:.4f}, std = {:.4f}".format(scale, scale / statistics.mean(mmd_stack) * statistics.stdev(mmd_stack)))
-    print("Source loss_coral: mu = {:.4f}, std = {:.4f}".format(scale, scale / statistics.mean(coral_stack) * statistics.stdev(coral_stack)))
+    print("Source loss_mean: mu = {:.8f}, std = {:.8f}".format(statistics.mean(mmd_stack) , statistics.stdev(mmd_stack)))
+    print("Source loss_coral: mu = {:.8f}, std = {:.8f}".format(statistics.mean(coral_stack) , statistics.stdev(coral_stack)))
 
     feat_all = torch.cat(feat_stack)
     feat_cov = covariance(feat_all)

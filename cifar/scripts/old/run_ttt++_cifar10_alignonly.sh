@@ -13,7 +13,7 @@ if [ "$#" -lt 2 ]; then
 
 	# METHOD=ssl
 	# METHOD=align
-	METHOD=both
+	METHOD=align
 	NSAMPLE=100000
 else
 	CORRUPT=$1
@@ -28,7 +28,6 @@ SCALE_SSH=0.2
 LR=0.01
 BS_SSL=256
 BS_ALIGN=256
-NEPOCH=20
 QS=1536
 DIVERGENCE=all
 DATADIR='/gallery_tate/dongyeon.woo/wonjae/TTTdata/'
@@ -42,7 +41,6 @@ echo 'SCALE_EXT:' ${SCALE_EXT}
 echo 'SCALE_SSH:' ${SCALE_SSH}
 echo 'BS_SSL:' ${BS_SSL}
 echo 'NSAMPLE:' ${NSAMPLE}
-echo 'NEPOCH:' ${NEPOCH}
 
 # ===================================
 
@@ -53,8 +51,8 @@ printf '\n---------------------\n\n'
 
 python ttt++.py \
 	--dataroot ${DATADIR} \
-	--resume /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/${DATASET}_joint_resnet50 \
-	--outf /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/final/${DATASET}_CON+TotalAlign_${CORRUPT} \
+	--resume /home2/wonjae.roh/tttplus/simclr/save/cifar10_models/Joint_cifar10_resnet50_lr_1.0_decay_0.0001_bsz_256_temp_0.5_trial_1_balance_0.9_cosine \
+	--outf /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/${DATASET}_ttt_simclr_joint_resnet50_originalTTTplus_both_alignonly \
 	--corruption ${CORRUPT} \
 	--level ${LEVEL} \
 	--workers 36 \
@@ -70,5 +68,4 @@ python ttt++.py \
 	--align_ssh \
 	--align_ext \
 	--num_sample ${NSAMPLE} \
-	--nepoch ${NEPOCH} \
 	--tsne

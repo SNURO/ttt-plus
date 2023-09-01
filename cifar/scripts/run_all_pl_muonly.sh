@@ -1,0 +1,15 @@
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh gaussian_noise both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh shot_noise both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh impulse_noise both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh glass_blur both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh motion_blur both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh zoom_blur both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh snow both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh frost both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh fog both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh elastic_transform both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh pixelate both 100000
+bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh jpeg_compression both 100000
+#bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh defocus_blur both 100000
+#bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh brightness both 100000
+#bash scripts/run_ttt++_cifar10_mod_pl_muonly.sh contrast both 100000

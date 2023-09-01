@@ -23,12 +23,11 @@ fi
 
 # ===================================
 
-SCALE_EXT=0.05
-SCALE_SSH=0.2
-LR=0.01
+SCALE_EXT=0.00005
+SCALE_SSH=0.0002
+LR=0.001
 BS_SSL=256
 BS_ALIGN=256
-NEPOCH=20
 QS=1536
 DIVERGENCE=all
 DATADIR='/gallery_tate/dongyeon.woo/wonjae/TTTdata/'
@@ -42,19 +41,17 @@ echo 'SCALE_EXT:' ${SCALE_EXT}
 echo 'SCALE_SSH:' ${SCALE_SSH}
 echo 'BS_SSL:' ${BS_SSL}
 echo 'NSAMPLE:' ${NSAMPLE}
-echo 'NEPOCH:' ${NEPOCH}
 
 # ===================================
 
 printf '\n---------------------\n\n'
 
 #--resume /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/${DATASET}_joint_resnet50 \
-#--resume /home2/wonjae.roh/tttplus/simclr/save/cifar10_models/Joint_cifar10_resnet50_lr_1.0_decay_0.0001_bsz_256_temp_0.5_trial_1_balance_0.9_cosine
 
-python ttt++.py \
+python ttt++classwise.py \
 	--dataroot ${DATADIR} \
-	--resume /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/${DATASET}_joint_resnet50 \
-	--outf /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/final/${DATASET}_CON+TotalAlign_${CORRUPT} \
+	--resume /home2/wonjae.roh/tttplus/simclr/save/cifar10_models/Joint_cifar10_resnet50_lr_1.0_decay_0.0001_bsz_256_temp_0.5_trial_1_balance_0.9_cosine \
+	--outf /home2/wonjae.roh/tttplus/ttt-plus/cifar/results/final/${DATASET}_CON+ClassAlign_PL_snow \
 	--corruption ${CORRUPT} \
 	--level ${LEVEL} \
 	--workers 36 \
@@ -69,6 +66,6 @@ python ttt++.py \
 	--divergence ${DIVERGENCE} \
 	--align_ssh \
 	--align_ext \
+	--perfect_label \
 	--num_sample ${NSAMPLE} \
-	--nepoch ${NEPOCH} \
 	--tsne

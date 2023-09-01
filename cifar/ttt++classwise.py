@@ -10,7 +10,7 @@ from utils.test_helpers import *
 from utils.prepare_dataset import *
 
 # ----------------------------------
-
+import ipdb
 import copy
 import time
 import pandas as pd
@@ -24,7 +24,12 @@ from offline import *
 from utils.trick_helpers import *
 from utils.contrastive import *
 
-from online import FeatureQueue
+from online import *
+
+from utils.shot_utils import obtain_shot_label, Entropy
+
+import warnings
+warnings.filterwarnings('ignore')
 
 # ----------------------------------
 
@@ -74,6 +79,9 @@ parser.add_argument('--tsne', action='store_true')
 ########################################################################
 parser.add_argument('--seed', default=0, type=int)
 
+###################added ################################################
+parser.add_argument('--perfect_label', action='store_true')
+
 
 args = parser.parse_args()
 
@@ -102,13 +110,15 @@ args_align = copy.deepcopy(args)
 args_align.ssl = None
 args_align.batch_size = args.batch_size_align
 
+    # modified to FALSE
 if args.method == 'align':
-    _, trloader = prepare_test_data(args_align, ttt=True, num_sample=args.num_sample)
+    _, trloader = prepare_test_data(args_align, ttt=True, num_sample=args.num_sample, classwise=True)
 else:
     _, trloader = prepare_train_data(args, args.num_sample)
 
 if args.method == 'both':
-    _, trloader_extra = prepare_test_data(args_align, ttt=True, num_sample=args.num_sample)
+    # modified to classwise option
+    _, trloader_extra = prepare_test_data(args_align, ttt=True, num_sample=args.num_sample, classwise=True)
     trloader_extra_iter = iter(trloader_extra)
 
 # -------------------------------
@@ -117,7 +127,7 @@ print('Resuming from %s...' %(args.resume))
 
 load_resnet50(net, head, ssh, classifier, args)
 
-if torch.cuda.device_count() > 1:   
+if torch.cuda.device_count() > 1:
     print("dataparallel initiated")
     ssh = torch.nn.DataParallel(ssh)
 
@@ -130,29 +140,46 @@ if args.method in ['align', 'both']:
         # reset batch size by queue size
         args_align.batch_size = args.queue_size
 
-    _, offlineloader = prepare_train_data(args_align)
+    cov_src_ext = {}
+    mu_src_ext = {}
+    scale_coral_ext= {}
+    scale_mmd_ext= {}
+    queue_ext = {}
 
-    MMD_SCALE_FACTOR = 0.5
-    if args.align_ext:
-        args_align.scale = args.scale_ext
-        cov_src_ext, coral_src_ext, mu_src_ext, mmd_src_ext = offline(offlineloader, ext, args.scale_ext)
-        scale_coral_ext = args.scale_ext / coral_src_ext
-        scale_mmd_ext = args.scale_ext / mmd_src_ext * MMD_SCALE_FACTOR
+    cov_src_ssh= {}
+    mu_src_ssh= {}
+    scale_align_ssh= {}
+    scale_mmd_ssh= {}
+    queue_ssh={}
 
-        # construct queue
-        if args.queue_size > args.batch_size_align:
-            queue_ext = FeatureQueue(dim=mu_src_ext.shape[0], length=args.queue_size-args.batch_size_align)
+    for class_index in range(10):
+        print(class_index)
 
-    if args.align_ssh:
-        args_align.scale = args.scale_ssh
-        from models.SSHead import ExtractorHead
-        cov_src_ssh, coral_src_ssh, mu_src_ssh, mmd_src_ssh = offline(offlineloader, ExtractorHead(ext, head).cuda(), args.scale_ssh)
-        scale_align_ssh = args.scale_ssh / coral_src_ssh
-        scale_mmd_ssh = args.scale_ssh / mmd_src_ssh * MMD_SCALE_FACTOR
+        _, offlineloader = prepare_train_data_classwise(args_align, target_class = class_index)
 
-        if args.queue_size > args.batch_size_align:
-            queue_ssh = FeatureQueue(dim=mu_src_ssh.shape[0], length=args.queue_size-args.batch_size_align)
+        MMD_SCALE_FACTOR = 0.5
+        if args.align_ext:
+            args_align.scale = args.scale_ext
+            cov_src_ext[class_index], coral_src_ext, mu_src_ext[class_index], mmd_src_ext = offline(offlineloader, ext, args.scale_ext)
+            scale_coral_ext[class_index] = args.scale_ext / coral_src_ext
+            scale_mmd_ext[class_index] = args.scale_ext / mmd_src_ext * MMD_SCALE_FACTOR
+
+            # construct queue
+            if args.queue_size > args.batch_size_align:
+                queue_ext[class_index] = FeatureQueue_classwise(dim=mu_src_ext[class_index].shape[0], length=args.queue_size-args.batch_size_align)
+
+        if args.align_ssh:
+            args_align.scale = args.scale_ssh
+            from models.SSHead import ExtractorHead
+            cov_src_ssh[class_index], coral_src_ssh, mu_src_ssh[class_index], mmd_src_ssh = offline(offlineloader, ExtractorHead(ext, head).cuda(), args.scale_ssh)
+            scale_align_ssh[class_index] = args.scale_ssh / coral_src_ssh
+            scale_mmd_ssh[class_index] = args.scale_ssh / mmd_src_ssh * MMD_SCALE_FACTOR
+
+            if args.queue_size > args.batch_size_align:
+                queue_ssh[class_index] = FeatureQueue_classwise(dim=mu_src_ssh[class_index].shape[0], length=args.queue_size-args.batch_size_align)
+
     print(scale_mmd_ext)
+
 # ----------- Test ------------
 
 if args.tsne:
@@ -165,9 +192,7 @@ if args.tsne:
     # comp_feat(feat_src, label_src, feat_tar, label_tar, os.path.join(args.outf, args.corruption + '_test_marginal.pdf'))
 
 all_err_cls = []
-all_loss_con = []
-all_loss_ext = []
-all_loss_ssh = []
+all_err_ssh = []
 
 print('Running...')
 print('Error (%)\t\ttest')
@@ -175,7 +200,6 @@ print('Error (%)\t\ttest')
 err_cls = test(teloader, net)[0]
 print(('Epoch %d/%d:' %(0, args.nepoch)).ljust(24) +
             '%.2f\t\t' %(err_cls*100))
-
 
 # -------------------------------
 
@@ -197,6 +221,16 @@ is_both_activated = False
 for epoch in range(1, args.nepoch+1):
 
     tic = time.time()
+    ext.eval()
+    
+    if args.method in ['both']:
+        mem_label = obtain_shot_label(trloader_extra, ext, classifier, args)
+    elif args.method in ['align']:
+        mem_label = obtain_shot_label(trloader, ext, classifier, args)
+
+    if not args.perfect_label: 
+        mem_label = torch.from_numpy(mem_label).cuda()
+
 
     if args.fix_ssh:
         classifier.eval()
@@ -212,12 +246,12 @@ for epoch in range(1, args.nepoch+1):
 
         optimizer.zero_grad()
 
-        if args.method in ['ssl', 'both']:  # batch당 contrastive learning 딱 한번?
+        if args.method in ['ssl', 'both']:
             images = torch.cat([inputs[0], inputs[1]], dim=0)
             images = images.cuda(non_blocking=True)
             labels = labels.cuda(non_blocking=True)
             bsz = labels.shape[0]
-            features = ssh(images)    #modified due to memory issue
+            features = ssh(images)
             f1, f2 = torch.split(features, [bsz, bsz], dim=0)
             features = torch.cat([f1.unsqueeze(1), f2.unsqueeze(1)], dim=1)
             loss = criterion(features)
@@ -226,55 +260,60 @@ for epoch in range(1, args.nepoch+1):
             del loss
 
         if args.method == 'align':
-            if args.align_ext:
 
-                loss = 0
-                feat_ext = ext(inputs.cuda())
+            pseudo_labels = mem_label[batch_idx*args.batch_size:(batch_idx+1)*args.batch_size]
 
-                # queue
-                if args.queue_size > args.batch_size_align:
-                    feat_queue = queue_ext.get()
-                    queue_ext.update(feat_ext)
-                    if feat_queue is not None:
-                        feat_ext = torch.cat([feat_ext, feat_queue.cuda()])
+            for class_idx in range(10):
+                
+                indices = (pseudo_labels == class_idx)
+                inputs_classwise = inputs[indices]
 
-                # coral
-                if args.divergence in ['coral', 'all']:
-                    cov_ext = covariance(feat_ext)
-                    loss += coral(cov_src_ext, cov_ext) * scale_coral_ext
+                if args.align_ext:
 
-                # mmd
-                if args.divergence in ['mmd', 'all']:
-                    mu_ext = feat_ext.mean(dim=0)
-                    loss += linear_mmd(mu_src_ext, mu_ext) * scale_mmd_ext
+                    loss = 0
+                    feat_ext = ext(inputs_classwise.cuda())
 
-                loss.backward()
-                loss_show['ext'] += loss.item()
-                del loss
+                    # queue
+                    if args.queue_size > args.batch_size_align:
+                        feat_queue = queue_ext[class_idx].get()
+                        queue_ext[class_idx].update(feat_ext)
+                        if feat_queue is not None:
+                            feat_ext = torch.cat([feat_ext, feat_queue.cuda()])
 
-            if args.align_ssh:
+                    if args.divergence in ['coral', 'all']:
+                        cov_ext = covariance(feat_ext)
+                        loss += coral(cov_src_ext[class_idx], cov_ext) * scale_coral_ext[class_idx]
+                    if args.divergence in ['mmd', 'all']:
+                        mu_ext = feat_ext.mean(dim=0)
+                        loss += linear_mmd(mu_src_ext[class_idx], mu_ext) * scale_mmd_ext[class_idx]
 
-                loss = 0
-                feat_ssh = head(ext(inputs.cuda()))
+                    loss.backward()
+                    loss_show['ext'] += loss.item()
+                    del loss
 
-                # queue
-                if args.queue_size > args.batch_size_align:
-                    feat_queue = queue_ssh.get()
-                    queue_ssh.update(feat_ssh)
-                    if feat_queue is not None:
-                        feat_ssh = torch.cat([feat_ssh, feat_queue.cuda()])
+                if args.align_ssh:  
 
-                if args.divergence in ['coral', 'all']:
-                    cov_ssh = covariance(feat_ssh)
-                    loss += coral(cov_src_ssh, cov_ssh) * scale_align_ssh
+                    loss = 0
 
-                if args.divergence in ['mmd', 'all']:
-                    mu_ssh = feat_ssh.mean(dim=0)
-                    loss += linear_mmd(mu_src_ssh, mu_ssh) * scale_mmd_ssh
+                    feat_ssh = head(ext(inputs_classwise.cuda()))
 
-                loss.backward()
-                loss_show['ssh'] += loss.item()
-                del loss
+                    # queue
+                    if args.queue_size > args.batch_size_align:
+                        feat_queue = queue_ssh[class_idx].get()
+                        queue_ssh[class_idx].update(feat_ssh)
+                        if feat_queue is not None:
+                            feat_ssh = torch.cat([feat_ssh, feat_queue.cuda()])
+
+                    if args.divergence in ['coral', 'all']:
+                        cov_ssh = covariance(feat_ssh)
+                        loss += coral(cov_src_ssh[class_idx], cov_ssh) * scale_align_ssh[class_idx]
+                    if args.divergence in ['mmd', 'all']:
+                        mu_ssh = feat_ssh.mean(dim=0)
+                        loss += linear_mmd(mu_src_ssh[class_idx], mu_ssh) * scale_mmd_ssh[class_idx]
+
+                    loss.backward()
+                    loss_show['ssh'] += loss.item()
+                    del loss
 
         if args.method == 'both' and is_both_activated:
 
@@ -285,61 +324,65 @@ for epoch in range(1, args.nepoch+1):
                 trloader_extra_iter = iter(trloader_extra)
                 inputs, _ = next(trloader_extra_iter)
 
-            if args.align_ext:
+            pseudo_labels = mem_label[batch_idx*args.batch_size:(batch_idx+1)*args.batch_size]
 
-                loss = 0
-                feat_ext = ext(inputs.cuda())
+            for class_idx in range(10):
+                
+                indices = (pseudo_labels == class_idx)
+                inputs_classwise = inputs[indices]
 
-                # queue
-                if args.queue_size > args.batch_size_align:
-                    feat_queue = queue_ext.get()
-                    queue_ext.update(feat_ext)
-                    if feat_queue is not None:
-                        feat_ext = torch.cat([feat_ext, feat_queue.cuda()])
+                if args.align_ext:
 
-                if args.divergence in ['coral', 'all']:
-                    cov_ext = covariance(feat_ext)
-                    loss += coral(cov_src_ext, cov_ext) * scale_coral_ext
-                if args.divergence in ['mmd', 'all']:
-                    mu_ext = feat_ext.mean(dim=0)
-                    loss += linear_mmd(mu_src_ext, mu_ext) * scale_mmd_ext
+                    loss = 0
+                    feat_ext = ext(inputs_classwise.cuda())
 
-                loss.backward()
-                loss_show['ext'] += loss.item()
-                del loss
+                    # queue
+                    if args.queue_size > args.batch_size_align:
+                        feat_queue = queue_ext[class_idx].get()
+                        queue_ext[class_idx].update(feat_ext)
+                        if feat_queue is not None:
+                            feat_ext = torch.cat([feat_ext, feat_queue.cuda()])
 
-            if args.align_ssh:  
+                    if args.divergence in ['coral', 'all']:
+                        cov_ext = covariance(feat_ext)
+                        loss += coral(cov_src_ext[class_idx], cov_ext) * scale_coral_ext[class_idx]
+                    if args.divergence in ['mmd', 'all']:
+                        mu_ext = feat_ext.mean(dim=0)
+                        loss += linear_mmd(mu_src_ext[class_idx], mu_ext) * scale_mmd_ext[class_idx]
 
-                loss = 0
+                    loss.backward()
+                    loss_show['ext'] += loss.item()
+                    del loss
 
-                feat_ssh = head(ext(inputs.cuda()))
+                if args.align_ssh:  
 
-                # queue
-                if args.queue_size > args.batch_size_align:
-                    feat_queue = queue_ssh.get()
-                    queue_ssh.update(feat_ssh)
-                    if feat_queue is not None:
-                        feat_ssh = torch.cat([feat_ssh, feat_queue.cuda()])
+                    loss = 0
 
-                if args.divergence in ['coral', 'all']:
-                    cov_ssh = covariance(feat_ssh)
-                    loss += coral(cov_src_ssh, cov_ssh) * scale_align_ssh
-                if args.divergence in ['mmd', 'all']:
-                    mu_ssh = feat_ssh.mean(dim=0)
-                    loss += linear_mmd(mu_src_ssh, mu_ssh) * scale_mmd_ssh
+                    feat_ssh = head(ext(inputs_classwise.cuda()))
 
-                loss.backward()
-                loss_show['ssh'] += loss.item()
-                del loss
+                    # queue
+                    if args.queue_size > args.batch_size_align:
+                        feat_queue = queue_ssh[class_idx].get()
+                        queue_ssh[class_idx].update(feat_ssh)
+                        if feat_queue is not None:
+                            feat_ssh = torch.cat([feat_ssh, feat_queue.cuda()])
+
+                    if args.divergence in ['coral', 'all']:
+                        cov_ssh = covariance(feat_ssh)
+                        loss += coral(cov_src_ssh[class_idx], cov_ssh) * scale_align_ssh[class_idx]
+                    if args.divergence in ['mmd', 'all']:
+                        mu_ssh = feat_ssh.mean(dim=0)
+                        loss += linear_mmd(mu_src_ssh[class_idx], mu_ssh) * scale_mmd_ssh[class_idx]
+
+                    loss.backward()
+                    loss_show['ssh'] += loss.item()
+                    del loss
 
         if epoch > args.bnepoch:
             optimizer.step()
 
     err_cls = test(teloader, net)[0]
     all_err_cls.append(err_cls)
-    all_loss_con.append(loss_show['contrastive']/batch_len)
-    all_loss_ext.append(loss_show.get('ext')/batch_len)
-    all_loss_ssh.append(loss_show.get('ssh')/batch_len)
 
     toc = time.time()
     print(('Epoch %d/%d (%.0fs):' %(epoch, args.nepoch, toc-tic)).ljust(24) +
@@ -362,7 +405,7 @@ for epoch in range(1, args.nepoch+1):
         torch.save(state, save_file)
         print('Save model to', save_file)
 
-    if args.tsne and epoch > 1 and err_cls < min(all_err_cls[:-1]):
+    if args.tsne and epoch > args.bnepoch and err_cls < min(all_err_cls[:-1]):
         ext_best = copy.deepcopy(ext.state_dict())
 
     # lr decay
@@ -383,9 +426,9 @@ if args.tsne:
     ext.load_state_dict(ext_best, strict=True)
     feat_tar, label_tar, tsne_tar = visu_feat(ext, teloader, prefix+'_class.pdf')
     calculate_distance(feat_src, label_src, tsne_src, feat_tar, label_tar, tsne_tar)
-    # comp_feat(feat_src, label_src, feat_tar, label_tar, prefix+'_marginal.pdf')
+    comp_feat(feat_src, label_src, feat_tar, label_tar, prefix+'_marginal.pdf')
 
 # -------------------------------
 
-df = pd.DataFrame([all_err_cls, all_loss_con, all_loss_ext, all_loss_ssh]).T
+df = pd.DataFrame([all_err_cls, all_err_ssh]).T
 df.to_csv(prefix, index=False, float_format='%.4f', header=False)
